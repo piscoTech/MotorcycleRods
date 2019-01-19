@@ -26,7 +26,7 @@ IMG  = [0, 1, 12, 21, 31, 33]
 #IMG += [50, 51] # Contact points
 #IMG += [90, 92, 98] # Iron dust
 
-#IMG = IMG[0:1]
+#IMG = IMG[3:4]
 
 for img in IMG:
 	title = "Image %02d - " % img
@@ -40,6 +40,9 @@ for img in IMG:
 	# Binarize
 	th, binary = cv.threshold(img, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
 	print("Threshold used: %d" % th)
+	# Clean by closing
+	strEl = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5,5))
+	binary = cv.morphologyEx(binary, cv.MORPH_CLOSE, strEl)
 	showImage(title + "Binarized", binary)
 
 	# Label
