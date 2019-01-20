@@ -26,7 +26,7 @@ IMG  = [0, 1, 12, 21, 31, 33]
 #IMG += [50, 51] # Contact points
 #IMG += [90, 92, 98] # Iron dust
 
-#IMG = IMG[3:4]
+IMG = IMG[0:1]
 
 for img in IMG:
 	title = "Image %02d - " % img
@@ -81,6 +81,58 @@ for img in IMG:
 		theta = theta if d2theta > 0 else theta + math.pi / 2
 
 		print("\tOrientation: %.1f deg" % (theta * 180 / math.pi))
+		alpha = -math.sin(theta)
+		beta = math.cos(theta)
+		major = (alpha, -beta,  beta*centers[l][1] - alpha*centers[l][0])
+		minor = (beta,  alpha, -beta*centers[l][0] - alpha*centers[l][1])
+
+		# Compute oriented MER
+		# c1 largest positive distance (third component) from major axis
+		c1 = (0,0,0)
+		# c2 largest negative distance from major axis
+		c2 = (0,0,0)
+		# c3 largest positive distance from minor axis
+		c3 = (0,0,0)
+		# c4 largest negative distance from minor axis
+		c4 = (0,0,0)
+		for x in range(stats[l][0], stats[l][0] + stats[l][2]):
+			for y in range(stats[l][1], stats[l][1] + stats[l][3]):
+				if component[y][x] != 255:
+					continue
+
+				distMaj = (major[0]*x + major[1]*y + major[2]) / math.sqrt(major[0]**2 + major[1]**2)
+				distMin = (minor[0]*x + minor[1]*y + minor[2]) / math.sqrt(minor[0]**2 + minor[1]**2)
+
+				c1 = (x,y,distMaj) if distMaj > c1[2] else c1
+				c2 = (x,y,distMaj) if distMaj < c2[2] else c2
+
+				c3 = (x,y,distMin) if distMin > c3[2] else c3
+				c4 = (x,y,distMin) if distMin < c4[2] else c4
+		# Contact points found, compute MER vertices
+		line1 = (alpha/beta, c1[1] - alpha/beta*c1[0])
+		line2 = (alpha/beta, c2[1] - alpha/beta*c2[0])
+		line3 = (-beta/alpha, c3[1] + beta/alpha*c3[0])
+		line4 = (-beta/alpha, c4[1] + beta/alpha*c4[0])
+
+		x = (line1[1] - line3[1]) / (line3[0] - line1[0])
+		v1 = (x, line1[0]*x + line1[1])
+		x = (line1[1] - line4[1]) / (line4[0] - line1[0])
+		v2 = (x, line1[0]*x + line1[1])
+
+		x = (line2[1] - line3[1]) / (line3[0] - line2[0])
+		v3 = (x, line2[0]*x + line2[1])
+		x = (line2[1] - line4[1]) / (line4[0] - line2[0])
+		v4 = (x, line2[0]*x + line2[1])
+		print(theta)
+		print(c1, c2, c3, c4)
+		print(line1, line2, line3, line4)
+		print(v1, v2, v3, v4)
+		mer = cv.line(component, (int(v1[0]), int(v1[1])), (int(v3[0]), int(v3[1])), (255,255,255))
+		mer = cv.line(mer, (int(v3[0]), int(v3[1])), (int(v4[0]), int(v4[1])), (255,255,255))
+		mer = cv.line(mer, (int(v4[0]), int(v4[1])), (int(v2[0]), int(v2[1])), (255,255,255))
+		mer = cv.line(mer, (int(v2[0]), int(v2[1])), (int(v1[0]), int(v1[1])), (255,255,255))
+		showImage(title + "MER Component %d" % l, mer)
+
 		for i, hData in enumerate(holes):
 			hX, hY, hD = hData
 			print("\tHole %d: At (%.2f, %.2f) with diameter %.2f" % (i+1, hX, hY, hD))
