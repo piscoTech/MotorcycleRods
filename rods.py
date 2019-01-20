@@ -14,7 +14,7 @@ def humanLabels(labels):
 	labelHue = np.uint8(179 * labels / np.max(labels))
 	blackCh = 255 * np.ones_like(labelHue)
 	visualLabels = cv.merge([labelHue, blackCh, blackCh])
-	visualLabels = cv.cvtColor(visualLabels, cv.COLOR_HSV2BGR)
+	visualLabels = cv.cvtColor(visualLabels, cv.COLOR_HSV2RGB)
 	visualLabels[labelHue == 0] = 0
 
 	return visualLabels
@@ -26,7 +26,7 @@ IMG  = [0, 1, 12, 21, 31, 33]
 #IMG += [50, 51] # Contact points
 #IMG += [90, 92, 98] # Iron dust
 
-IMG = IMG[0:1]
+# IMG = IMG[0:1]
 
 for img in IMG:
 	title = "Image %02d - " % img
@@ -49,6 +49,7 @@ for img in IMG:
 	_, labels, stats, centers = cv.connectedComponentsWithStats(binary)
 	print("Found %d object(s)" % np.max(labels))
 
+	labelsMER = np.zeros_like(labels, dtype=np.uint8)
 	# Start from 1 to ignore background
 	for l in range(1, np.max(labels) + 1):
 		print("Object %d at (%.2f, %.2f)" % (l, centers[l][0], centers[l][1]))
@@ -123,18 +124,21 @@ for img in IMG:
 		v3 = (x, line2[0]*x + line2[1])
 		x = (line2[1] - line4[1]) / (line4[0] - line2[0])
 		v4 = (x, line2[0]*x + line2[1])
-		print(theta)
-		print(c1, c2, c3, c4)
-		print(line1, line2, line3, line4)
-		print(v1, v2, v3, v4)
 		mer = cv.line(component, (int(v1[0]), int(v1[1])), (int(v3[0]), int(v3[1])), (255,255,255))
 		mer = cv.line(mer, (int(v3[0]), int(v3[1])), (int(v4[0]), int(v4[1])), (255,255,255))
 		mer = cv.line(mer, (int(v4[0]), int(v4[1])), (int(v2[0]), int(v2[1])), (255,255,255))
 		mer = cv.line(mer, (int(v2[0]), int(v2[1])), (int(v1[0]), int(v1[1])), (255,255,255))
-		showImage(title + "MER Component %d" % l, mer)
+		labelsMER = cv.max(labelsMER, np.array([[l if pixel == 255 else 0 for pixel in row] for row in mer], dtype=np.uint8))
+
+		length = math.sqrt((v1[0] - v2[0])**2 + (v1[1] - v2[1])**2)
+		width = math.sqrt((v1[0] - v3[0])**2 + (v1[1] - v3[1])**2)
+		print("\tLength: %.2f" % length)
+		print("\tWidth: %.2f" % width)
 
 		for i, hData in enumerate(holes):
 			hX, hY, hD = hData
 			print("\tHole %d: At (%.2f, %.2f) with diameter %.2f" % (i+1, hX, hY, hD))
 
-	showImage(title + "Labelled", humanLabels(labels))
+		showImage(title + "Component %d" % l, mer)
+
+	showImage(title + "Labelled", humanLabels(labelsMER))
