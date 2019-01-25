@@ -21,12 +21,12 @@ def humanLabels(labels):
 
 print("Orientation is given relative to the positive x semiaxis, counter-clockwise")
 
+DUST_AREA_THRESHOLD = 50
+
 IMG  = [0, 1, 12, 21, 31, 33]
 IMG += [44, 47, 48, 49] # Other objects
 #IMG += [50, 51] # Contact points
-#IMG += [90, 92, 98] # Iron dust
-
-# IMG = IMG[0:1]
+IMG += [90, 92, 98] # Iron dust
 
 for img in IMG:
 	title = "Image %02d - " % img
@@ -40,26 +40,39 @@ for img in IMG:
 	# Binarize
 	th, binary = cv.threshold(img, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
 	print("Threshold used: %d" % th)
-	# Clean by closing
+	showImage(title + "Binarized", binary)
+	# Remove dust by opening
+	strEl = cv.getStructuringElement(cv.MORPH_RECT, (2,2))
+	binary = cv.morphologyEx(binary, cv.MORPH_OPEN, strEl)
+	showImage(title + "Opened", binary)
+	# Clean the result by closing
 	strEl = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5,5))
 	binary = cv.morphologyEx(binary, cv.MORPH_CLOSE, strEl)
-	showImage(title + "Binarized", binary)
-
+	showImage(title + "Closed", binary)
+	
 	# Label
 	_, labels, stats, centers = cv.connectedComponentsWithStats(binary)
 	print("Found %d object(s)" % np.max(labels))
 
 	labelsMER = np.zeros_like(labels, dtype=np.uint8)
-	# Start from 1 to ignore background
-	for l in range(1, np.max(labels) + 1):
+	finalLabel = 1
+	for l in range(0, np.max(labels) + 1):
+		if stats[l][0] == 0 and stats[l][1] == 0:
+			# Background component
+			continue
+
 		print("Object %d at (%.2f, %.2f)" % (l, centers[l][0], centers[l][1]))
 		print("\tArea: %d" % stats[l][4])
+
+		if stats[l][4] < DUST_AREA_THRESHOLD:
+			print("\tDust detected!")
+			continue
 
 		component = np.array([[255 if pixel == l else 0 for pixel in row] for row in labels], dtype=np.uint8)
 		_, _, holesStats, holesCenters = cv.connectedComponentsWithStats(255 - component)
 		holes = []
 		for hStat, hCenter in zip(holesStats, holesCenters):
-			if hStat[0] == 0 or hStat[1] == 0:
+			if hStat[0] == 0 and hStat[1] == 0:
 				# This is the main background, not relevant
 				continue
 			elif math.sqrt((centers[l][0] - hCenter[0])**2 + (centers[l][1] - hCenter[1])**2) < 1:
@@ -139,7 +152,8 @@ for img in IMG:
 		mer = cv.line(mer, (int(v4[0]), int(v4[1])), (int(v2[0]), int(v2[1])), (255,255,255))
 		mer = cv.line(mer, (int(v2[0]), int(v2[1])), (int(v1[0]), int(v1[1])), (255,255,255))
 		mer = cv.line(mer, (wb1[0], wb1[1]), (wb2[0], wb2[1]), (0,0,0))
-		labelsMER = cv.max(labelsMER, np.array([[l if pixel == 255 else 0 for pixel in row] for row in mer], dtype=np.uint8))
+		labelsMER = cv.max(labelsMER, np.array([[finalLabel if pixel == 255 else 0 for pixel in row] for row in mer], dtype=np.uint8))
+		finalLabel += 1
 
 		length = math.sqrt((v1[0] - v2[0])**2 + (v1[1] - v2[1])**2)
 		width = math.sqrt((v1[0] - v3[0])**2 + (v1[1] - v3[1])**2)
