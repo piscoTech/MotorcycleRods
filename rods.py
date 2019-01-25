@@ -40,15 +40,13 @@ for img in IMG:
 	# Binarize
 	th, binary = cv.threshold(img, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
 	print("Threshold used: %d" % th)
-	showImage(title + "Binarized", binary)
 	# Remove dust by opening
 	strEl = cv.getStructuringElement(cv.MORPH_RECT, (2,2))
 	binary = cv.morphologyEx(binary, cv.MORPH_OPEN, strEl)
-	showImage(title + "Opened", binary)
 	# Clean the result by closing
 	strEl = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5,5))
 	binary = cv.morphologyEx(binary, cv.MORPH_CLOSE, strEl)
-	showImage(title + "Closed", binary)
+	showImage(title + "Binarized", binary)
 	
 	# Label
 	_, labels, stats, centers = cv.connectedComponentsWithStats(binary)
