@@ -1,0 +1,48 @@
+\input{preamble.tex}
+
+\title{Visual Inspection of Connecting Rods}
+\date{A.Y. 2018--2019}
+\author{Marco Boschi}
+
+\begin{document}
+\selectlanguage{english}
+
+\makeheading{MotorcycleRods}
+
+\section{Image Binarization \& Labeling}
+The characteristics required to be extracted from the provided images are those computable via blob analysis, so the first step is to binarize the inherently binary images containing the rods.
+
+The images are acquired with the backlighting technique so are suited to be binarized using a single global threshold.
+Although the lighting is homogeneous in a single image, it is not consisted between different images so a fixed value for the threshold is not a good choice so Otsu's algorithm has been deployed to find the optimal threshold using the function provided by OpenCV.
+
+The results provided by Otsu's are almost perfect apart from some images in which very small holes appears and the rods are ``broken", which seems caused by different surfaces of the rods appearing in the image, not just the top side.
+To fix this problem the image is further processed by a closing step using a $5\times 5$ circular structuring element to reconstruct the rod.
+
+Each image is then fed to the function provided by OpenCV to perform connected component labeling which is also capable of reporting the area and position, \ie the barycenter, of each blob.
+
+\section{Rod Analysis}
+For each of the found components, which is sure to be a rod given the specification of the program, the corresponding rod type has to be found, which can be done by counting the number of holes.
+
+This can be accomplished in three different ways: computing the Euler number of just the current rod, compute the contour hierarchy or labeling the background.
+Considering that for each hole is required the diameter and position and that the labeling function gives out of the box the position and the area, the latter option is chosen as the diameter of the circular hole will be computed with the inverse formula for the area of a circle.
+
+The second labeling step is applied to the background and the found components will be the background of the scene, the rod itself and 1 or 2 circular blob for the holes.
+The first two components are not interesting for determining the rod type so are discarded by checking whether the left- or top-most pixel coordinate is 0, a characteristic of the image background, and whether the blob center is the same as the center of the rod under analysis (this could also be done by checking for the same area as the holes are smaller than the rods).
+Both of these checks use only information provided by the labeling process so are not expensive.
+
+After this second labeling the rod type can be identified and hole positions and diameters known.
+
+\subsection{Oriented MER}
+To compute rod width, height and width at the barycenter the oriented MER must be computed, so the first step is to find the rod orientation.
+OpenCV provides a function to compute the MER, but the one returned has minimum area, not minimum inertia along the major axis.
+
+Orientation is thus computed manually finding the axis with least inertia via the central moments computed by the appropriate OpenCV function.
+Once this is done the oriented MER can be computed by finding the contact points between the MER sides and the rod and then the sides themselves as the lines through the contact points with direction as the major and minor axes.
+
+The contact points are found by scanning each pixel of the rod and recording those ones with the greatest positive and negative distance from the major axis, the same is done for the minor axis.
+Once the sides of the MER have been computed they can be intersected to find the vertices and thus the width and height of the rod.
+
+The width at the barycenter is the length of the segment belonging to the minor axis and the rod itself and its two vertices can be found along side the contact points by tracking those two points of the rod with the greatest positive and negative distance from the major axis \textit{and} minimum distance from the minor axis, \ie they are points of the minor axis so the distance is 0, but as there's no sub-pixel precision in finding these points the actual check is whether the absolute distance from the minor axis is less than 0.5.
+The width at the barycenter is then the distance between these two points.
+
+\end{document}
