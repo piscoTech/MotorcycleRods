@@ -27,7 +27,7 @@ This can be accomplished in three different ways: computing the Euler number of 
 Considering that for each hole is required the diameter and position and that the labeling function gives out of the box the position and the area, the latter option is chosen as the diameter of the circular hole will be computed with the inverse formula for the area of a circle.
 
 The second labeling step is applied to the background and the found components will be the background of the scene, the rod itself and 1 or 2 circular blob for the holes.
-The first two components are not interesting for determining the rod type so are discarded by checking whether the left- or top-most pixel coordinate is 0, a characteristic of the image background, and whether the blob center is the same as the center of the rod under analysis (this could also be done by checking for the same area as the holes are smaller than the rods).
+The first two components are not interesting for determining the rod type so are discarded by checking whether the left- and top-most pixel coordinate is 0, a characteristic of the image background, and whether the blob center is the same as the center of the rod under analysis (this could also be done by checking for the same area as the holes are smaller than the rods).
 Both of these checks use only information provided by the labeling process so are not expensive.
 
 After this second labeling the rod type can be identified and hole positions and diameters known.
@@ -44,5 +44,23 @@ Once the sides of the MER have been computed they can be intersected to find the
 
 The width at the barycenter is the length of the segment belonging to the minor axis and the rod itself and its two vertices can be found along side the contact points by tracking those two points of the rod with the greatest positive and negative distance from the major axis \textit{and} minimum distance from the minor axis, \ie they are points of the minor axis so the distance is 0, but as there's no sub-pixel precision in finding these points the actual check is whether the absolute distance from the minor axis is less than 0.5.
 The width at the barycenter is then the distance between these two points.
+
+\section{Handling Distractors}
+Possible distractor objects are screws and washers with respectively 0 and 1 hole.
+
+Given these characteristics, as the code to determine the rod type is based on the number of holes and already discards component with a number of holes different from 1 or 2, screws are already discarded out of the box.
+
+When counting the number of holes the components (of the second labeling) with center equal to the one of the current component (of the first labeling) are discarded when analyzing the results of the second labeling to ignore to rod itself.
+As the washer holes are exactly in the center this check also discards these holes and so also washers are already ignored out of the box because a rod with 0 holes is not valid.
+If the hole was not in the center, a possible check to discard washers could be whether the elongatedness of the component is above a certain threshold.
+
+\section{Handling Iron Powder}
+To remove the unwanted iron powder from the image the right tool is opening, which must be deployed before the closing step used to fix rods broken by the binarization.
+
+Structuring elements tested to remove the dust were a $5\times 5$ circle, a $3\times 3$ circle, a $2\times 2$ circle and a $2\times 2$ square, listed from worst to best.
+The larger structuring elements were more able to remove the dust from the binarized image, however as the parts of the rods around their holes are not thick enough the result contained damaged rods, which would render the following analysis meaningless.
+The actually used $2\times 2$ square structuring element allows to remove most of the dust but not all and even if the rods are sometimes broken, the following closing step, still using a $5\times 5$ circle, is able to repair them as if they were never broken.
+
+The result of this process contains many false components consisting only of dust which will still be discarded as these components will have no holes, but the overall computation process will be drastically slowed down with no countermeasures in place, so when processing a component the first check is whether the area is below a certain threshold, if so it is immediately discarded and reported as dust, otherwise normal analysis will continue.
 
 \end{document}
